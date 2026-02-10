@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Diagnóstico Operacional – Faturamento e Expedição</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .pilar {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      margin-bottom: 25px;
+      padding: 20px;
+    }
+    .pilar h2 {
+      margin-top: 0;
+      color: #1f4e79;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 5px;
+    }
+    .descricao {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #eef3f7;
+      text-align: left;
+    }
+    input[type=number] {
+      width: 60px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 60px;
+      resize: vertical;
+    }
+    .acoes {
+      text-align: center;
+      margin-top: 30px;
+    }
+    button {
+      background: #1f4e79;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 12px 18px;
+      margin: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #163a59;
+    }
+    .resultado {
+      margin-top: 30px;
+      padding: 20px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      font-size: 18px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Formulário de Diagnóstico Operacional<br>Faturamento e Expedição</h1>
+<p style="text-align:center">Escala de avaliação: 0 (Inexistente) a 5 (Excelência)</p>
+
+<div id="formulario"></div>
+
+<div class="acoes">
+  <button onclick="calcular()">Calcular Diagnóstico</button>
+  <button onclick="exportarExcel()">Exportar Excel</button>
+  <button onclick="exportarPDF()">Exportar PDF</button>
+</div>
+
+<div id="resultado" class="resultado"></div>
+
+<script>
+const pilares = [
+  {
+    nome: "1. Governança do Processo (Visão Geral)",
+    descricao: "Avalia a existência de governança, papéis definidos, padronização e disciplina do processo ponta a ponta.",
+    itens: [
+      "Existe fluxo formal documentado do processo?",
+      "O processo real segue o fluxo documentado?",
+      "Há definição clara de responsabilidades (RACI)?",
+      "Existe rotina formal de análise de falhas operacionais?",
+      "As áreas atuam de forma integrada?"
+    ]
+  },
+  {
+    nome: "2. Entrada de Pedidos e Integração Comercial",
+    descricao: "Avalia a qualidade da entrada dos pedidos, validações comerciais e integração com o faturamento e a expedição.",
+    itens: [
+      "Os pedidos entram de forma padronizada no ERP?",
+      "Existem tipos de pedido bem definidos no sistema?",
+      "Há validações automáticas de dados comerciais e fiscais?",
+      "Pedidos inconsistentes são bloqueados automaticamente?",
+      "Alterações pós-liberação são controladas?"
+    ]
+  },
+  {
+    nome: "3. Planejamento de Expedição e Sequenciamento",
+    descricao: "Avalia o planejamento de cargas, priorização e alinhamento com PCP, estoque e transporte.",
+    itens: [
+      "Existe planejamento formal de expedição?",
+      "O sequenciamento considera capacidade real?",
+      "Há alinhamento com PCP e disponibilidade física?",
+      "Ordens de carregamento são revisadas antes da execução?"
+    ]
+  },
+  {
+    nome: "4. WMS – Endereçamento, Separação e Movimentação",
+    descricao: "Avalia a confiabilidade do WMS, endereçamento, separação, FIFO/FEFO e conferência.",
+    itens: [
+      "O endereçamento de paletes é estruturado e confiável?",
+      "O WMS garante FIFO/FEFO automaticamente?",
+      "A separação é orientada pelo sistema?",
+      "Existe conferência obrigatória da separação?",
+      "O estoque físico é confiável em relação ao sistema?"
+    ]
+  },
+  {
+    nome: "5. Faturamento (ERP + Fiscal)",
+    descricao: "Avalia a robustez das regras fiscais, validações automáticas e aderência entre físico e fiscal.",
+    itens: [
+      "Existem regras claras por tipo de faturamento?",
+      "O sistema valida CFOP, CST e natureza da operação?",
+      "Há baixa incidência de cancelamento de NF?",
+      "Existe dupla checagem antes da autorização da NF?",
+      "O faturamento depende da confirmação física?"
+    ]
+  },
+  {
+    nome: "6. Integração ERP x WMS",
+    descricao: "Avalia a qualidade da integração sistêmica e os bloqueios cruzados entre físico e fiscal.",
+    itens: [
+      "A integração ERP x WMS é confiável?",
+      "Existem bloqueios cruzados entre físico e fiscal?",
+      "As falhas de integração são monitoradas?",
+      "Existe SLA para correção de falhas sistêmicas?"
+    ]
+  },
+  {
+    nome: "7. Carregamento e Expedição Física",
+    descricao: "Avalia o processo físico de carregamento, conferência e controle de tempo.",
+    itens: [
+      "Existe checklist formal de carregamento?",
+      "A conferência NF x carga é obrigatória?",
+      "Há controle de tempo médio por carga?",
+      "Existe rastreabilidade de quem executou cada etapa?"
+    ]
+  },
+  {
+    nome: "8. Pessoas, Treinamento e Disciplina Operacional",
+    descricao: "Avalia capacitação, dependência de pessoas e disciplina operacional.",
+    itens: [
+      "Os operadores recebem treinamento formal em ERP/WMS?",
+      "Há conhecimento básico fiscal na operação?",
+      "Existe baixa dependência de indivíduos-chave?",
+      "Erros reincidentes geram plano de ação?"
+    ]
+  },
+  {
+    nome: "9. Indicadores, Controles e Melhoria Contínua",
+    descricao: "Avalia indicadores, gestão à vista e cultura de melhoria contínua.",
+    itens: [
+      "Existem KPIs claros para faturamento e expedição?",
+      "Os indicadores são usados na tomada de decisão?",
+      "Há acompanhamento diário dos resultados?",
+      "Existe histórico de melhoria contínua?"
+    ]
+  },
+  {
+    nome: "10. Riscos e Impactos",
+    descricao: "Avalia riscos financeiros, fiscais, operacionais e de imagem.",
+    itens: [
+      "Os riscos fiscais são conhecidos e controlados?",
+      "Erros operacionais geram impacto financeiro relevante?",
+      "Existe risco recorrente de penalidades fiscais?",
+      "Os riscos são tratados de forma estruturada?"
+    ]
+  }
+];
+
+const container = document.getElementById("formulario");
+let contador = 0;
+
+pilares.forEach(p => {
+  let html = `<div class='pilar'><h2>${p.nome}</h2><p class='descricao'>${p.descricao}</p>`;
+  html += `<table><tr><th>Pergunta</th><th>Nota (0–5)</th><th>Observações</th></tr>`;
+  p.itens.forEach(i => {
+    html += `<tr>
+      <td>${i}</td>
+      <td><input type='number' min='0' max='5' id='nota_${contador}'></td>
+      <td><textarea id='obs_${contador}'></textarea></td>
+    </tr>`;
+    contador++;
+  });
+  html += `</table></div>`;
+  container.innerHTML += html;
+});
+
+function calcular() {
+  let soma = 0;
+  let qtd = 0;
+  for (let i = 0; i < contador; i++) {
+    const v = parseFloat(document.getElementById(`nota_${i}`).value);
+    if (!isNaN(v)) { soma += v; qtd++; }
+  }
+  const score = (soma / qtd).toFixed(2);
+  let nivel = "";
+  if (score < 2) nivel = "Nível 1 – Reativo";
+  else if (score < 3) nivel = "Nível 2 – Instável";
+  else if (score < 4) nivel = "Nível 3 – Controlado";
+  else if (score < 4.6) nivel = "Nível 4 – Integrado";
+  else nivel = "Nível 5 – Excelência";
+  document.getElementById("resultado").innerText = `Score Geral: ${score} | ${nivel}`;
+}
+
+function exportarExcel() {
+  const dados = [["Pilar","Pergunta","Nota","Observações"]];
+  let i = 0;
+  pilares.forEach(p => {
+    p.itens.forEach(pergunta => {
+      dados.push([
+        p.nome,
+        pergunta,
+        document.getElementById(`nota_${i}`).value,
+        document.getElementById(`obs_${i}`).value
+      ]);
+      i++;
+    });
+  });
+  const ws = XLSX.utils.aoa_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Diagnóstico");
+  XLSX.writeFile(wb, "diagnostico_operacional.xlsx");
+}
+
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 10;
+  doc.text("Diagnóstico Operacional – Faturamento e Expedição", 10, y);
+  y += 10;
+  let i = 0;
+  pilares.forEach(p => {
+    doc.text(p.nome, 10, y); y += 6;
+    p.itens.forEach(pergunta => {
+      doc.text(`- ${pergunta} | Nota: ${document.getElementById(`nota_${i}`).value}`, 12, y);
+      y += 5;
+      const obs = document.getElementById(`obs_${i}`).value;
+      if (obs) { doc.text(`Obs: ${obs}`, 14, y); y += 5; }
+      i++;
+    });
+    y += 4;
+  });
+  doc.save("diagnostico_operacional.pdf");
+}
+</script>
+
+</body>
+</html>
