@@ -206,14 +206,42 @@ async function exportarPDF(){
  const doc = new jsPDF('p','mm','a4');
  let y = 15;
 
- doc.setFontSize(14);
- doc.text('Diagnóstico de Maturidade – Faturamento e Expedição', 14, y);
+ // Calcular scores
+ let total=0;
+ const radarData=[];
+ estrutura.forEach((p,i)=>{
+  let soma=0;
+  p.perguntas.forEach((_,j)=>{
+   const v=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+   soma+=v;
+  });
+  const media=soma/p.perguntas.length;
+  radarData.push(media);
+  total+=media*p.peso;
+ });
+ const scoreGeral=(total/estrutura.reduce((a,b)=>a+b.peso,0)).toFixed(2);
+
+ doc.setFontSize(16);
+ doc.text('Mapeamento e Diagnóstico de Processo', 14, y);
  y += 8;
 
- doc.setFontSize(10);
+ doc.setFontSize(11);
+ const nomeProcesso = document.getElementById('nomeProcesso')?.value || 'Não informado';
+ doc.text('Processo: ' + nomeProcesso, 14, y);
+ y += 6;
  doc.text('Data: ' + new Date().toLocaleString(), 14, y);
+ y += 6;
+ doc.setFontSize(12);
+ doc.text('Score Geral Ponderado: ' + scoreGeral, 14, y);
  y += 10;
 
+ // Gerar gráfico radar como imagem
+ const canvasRadar = document.getElementById('radar');
+ const imgData = canvasRadar.toDataURL('image/png',1.0);
+ doc.addImage(imgData,'PNG',15,y,180,80);
+ y += 90;
+
+ // Entrevistados
  const entrevistados=[];
  document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
   const tds=tr.querySelectorAll('input');
@@ -233,41 +261,69 @@ async function exportarPDF(){
   y=doc.lastAutoTable.finalY+10;
  }
 
+ // Detalhamento completo por Pilar
  estrutura.forEach((p,i)=>{
-  let soma=0;
-  const criticos=[];
-  p.perguntas.forEach((q,j)=>{
-   const nota=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
-   soma+=nota;
-   if(nota<=2) criticos.push(q);
-  });
-  const media=(soma/p.perguntas.length).toFixed(2);
-
   if(y>260){doc.addPage(); y=15;}
 
+  doc.setFontSize(12);
+  doc.text((i+1)+'. '+p.nome,14,y);
+  y+=6;
+
+  let soma=0;
+  const criticos=[];
+
+  p.perguntas.forEach((q,j)=>{
+   const nota=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+   const obs=document.getElementById(`p${i}_${j}_obs`).value || '';
+   soma+=nota;
+   if(nota<=2) criticos.push(q);
+
+   if(y>260){doc.addPage(); y=15;}
+
+   doc.setFontSize(9);
+   const perguntaLines=doc.splitTextToSize('Pergunta: '+q,170);
+   doc.text(perguntaLines,16,y);
+   y+=perguntaLines.length*4;
+
+   doc.text('Nota: '+nota,18,y);
+   y+=4;
+
+   if(obs){
+    const obsLines=doc.splitTextToSize('Observações: '+obs,165);
+    doc.text(obsLines,18,y);
+    y+=obsLines.length*4;
+   }
+
+   y+=4;
+  });
+
+  const media=(soma/p.perguntas.length).toFixed(2);
+
+  if(y>250){doc.addPage(); y=15;}
+
   doc.setFontSize(11);
-  doc.text((i+1)+'. '+p.nome+' – Média: '+media,14,y);
+  doc.text('Resumo do Pilar – Média: '+media,16,y);
   y+=6;
 
   doc.setFontSize(9);
   if(criticos.length>0){
-   doc.text('Pontos Críticos:',16,y);
+   doc.text('Pontos Críticos Identificados:',18,y);
    y+=5;
    criticos.forEach(c=>{
-    const lines=doc.splitTextToSize('- '+c,170);
-    doc.text(lines,18,y);
+    const lines=doc.splitTextToSize('- '+c,165);
+    doc.text(lines,20,y);
     y+=lines.length*4;
    });
-  }else{
-   doc.text('Sem pontos críticos relevantes.',16,y);
+  } else {
+   doc.text('Não foram identificados pontos críticos relevantes neste pilar.',18,y);
    y+=6;
   }
 
-  doc.text('Recomendação: Revisar processos, reforçar controles e implementar plano de ação estruturado.',16,y);
+  doc.text('Direcionamento de Melhoria: Revisar fluxos, reforçar controles e estruturar plano de ação específico para as fragilidades identificadas.',18,y);
   y+=10;
  });
 
- doc.save('Diagnostico_Faturamento_Expedicao.pdf');
+ doc.save('Mapeamento_Diagnostico_Processo.pdf');
 }
 
 </script>
