@@ -2,9 +2,10 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Diagnóstico Faturamento e Expedição</title>
+<title>Mapeamento e Diagnóstico de Processo</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
 body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;margin:20px}
 .card{background:#fff;padding:20px;margin-bottom:20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
@@ -12,16 +13,23 @@ h1,h2,h3{color:#2c3e50}
 h2{border-bottom:2px solid #ddd;padding-bottom:5px}
 label{font-weight:bold}
 input,textarea{margin:5px 0 12px 0;padding:6px}
-input[type=number]{width:70px} textarea{width:100%;min-height:80px;resize:vertical}
-textarea{min-height:60px}
+input[type=number]{width:70px}
+textarea{width:100%;min-height:80px;resize:vertical}
 .question{border-left:4px solid #3498db;padding-left:10px;margin-bottom:15px}
 button{padding:10px 15px;font-size:14px;margin-right:10px}
 .section-desc{font-style:italic;color:#555;margin-bottom:15px}
+table input{width:95%}
 </style>
 </head>
 <body>
 
-<h1>Diagnóstico de Maturidade – Faturamento e Expedição</h1>
+<h1>Mapeamento e Diagnóstico de Processo</h1>
+
+<div class="card">
+<h2>Identificação do Processo</h2>
+<label>Nome do Processo Avaliado:</label>
+<input type="text" id="nomeProcesso" style="width:100%" placeholder="Ex: Processo de Faturamento e Expedição – Unidade SC">
+</div>
 
 <div class="card">
 <h2>Identificação dos Entrevistados</h2>
@@ -60,6 +68,7 @@ button{padding:10px 15px;font-size:14px;margin-right:10px}
 </div>
 
 <script>
+
 const estrutura=[
 {nome:'Governança do Processo (Visão Geral)',peso:1,perguntas:[
 'Existe definição clara de papéis e responsabilidades entre Faturamento, Expedição e Comercial?',
@@ -125,7 +134,8 @@ const estrutura=[
 
 const form=document.getElementById('formulario');
 estrutura.forEach((p,i)=>{
- const card=document.createElement('div');card.className='card';
+ const card=document.createElement('div');
+ card.className='card';
  card.innerHTML=`<h2>${i+1}. ${p.nome}</h2><div class='section-desc'>Peso do pilar: ${p.peso}</div>`;
  p.perguntas.forEach((q,j)=>{
   card.innerHTML+=`<div class='question'>
@@ -138,14 +148,27 @@ estrutura.forEach((p,i)=>{
 });
 
 function calcular(){
- let total=0,qt=0;const radar=[];
+ let total=0;
+ const radar=[];
  estrutura.forEach((p,i)=>{
-  let soma=0; p.perguntas.forEach((_,j)=>{const v=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;soma+=v;qt++;});
-  const media=soma/p.perguntas.length; radar.push(media); total+=media*p.peso;
+  let soma=0;
+  p.perguntas.forEach((_,j)=>{
+   const v=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+   soma+=v;
+  });
+  const media=soma/p.perguntas.length;
+  radar.push(media);
+  total+=media*p.peso;
  });
  const score=(total/estrutura.reduce((a,b)=>a+b.peso,0)).toFixed(2);
- resultado.innerText='Score Geral Ponderado: '+score;
- new Chart(document.getElementById('radar'),{type:'radar',data:{labels:estrutura.map(p=>p.nome),datasets:[{label:'Score por Pilar',data:radar}]}});
+ document.getElementById('resultado').innerText='Score Geral Ponderado: '+score;
+ new Chart(document.getElementById('radar'),{
+  type:'radar',
+  data:{
+   labels:estrutura.map(p=>p.nome),
+   datasets:[{label:'Score por Pilar',data:radar}]
+  }
+ });
 }
 
 function adicionarEntrevistado(){
@@ -157,31 +180,96 @@ function adicionarEntrevistado(){
 
 function salvar(){
  const entrevistados=[];
-document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
- const tds=tr.querySelectorAll('input');
- if(tds[0].value) entrevistados.push({nome:tds[0].value,cargo:tds[1].value,email:tds[2].value});
-});
-const dados={entrevistados:entrevistados,area:area.value,unidade:unidade.value,data:new Date().toISOString(),respostas:{}};
+ document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
+  const tds=tr.querySelectorAll('input');
+  if(tds[0].value){
+   entrevistados.push({nome:tds[0].value,cargo:tds[1].value,email:tds[2].value});
+  }
+ });
+ const dados={data:new Date().toISOString(),entrevistados,respostas:{}};
  estrutura.forEach((p,i)=>{
   dados.respostas[p.nome]=[];
-  p.perguntas.forEach((q,j)=>{dados.respostas[p.nome].push({pergunta:q,nota:document.getElementById(`p${i}_${j}`).value,obs:document.getElementById(`p${i}_${j}_obs`).value});});
+  p.perguntas.forEach((q,j)=>{
+   dados.respostas[p.nome].push({
+    pergunta:q,
+    nota:document.getElementById(`p${i}_${j}`).value,
+    obs:document.getElementById(`p${i}_${j}_obs`).value
+   });
+  });
  });
  localStorage.setItem('diagnostico_'+dados.data,JSON.stringify(dados));
  alert('Avaliação salva com sucesso');
 }
 
-function exportarPDF(){
- const element=document.body;
- const opt={
-  margin:10,
-  filename:'Diagnostico_Faturamento_Expedicao.pdf',
-  image:{type:'jpeg',quality:0.98},
-  html2canvas:{scale:2, useCORS:true},
-  jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-  pagebreak:{mode:['css','legacy']}
- };
- html2pdf().set(opt).from(element).save();
+async function exportarPDF(){
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF('p','mm','a4');
+ let y = 15;
+
+ doc.setFontSize(14);
+ doc.text('Diagnóstico de Maturidade – Faturamento e Expedição', 14, y);
+ y += 8;
+
+ doc.setFontSize(10);
+ doc.text('Data: ' + new Date().toLocaleString(), 14, y);
+ y += 10;
+
+ const entrevistados=[];
+ document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
+  const tds=tr.querySelectorAll('input');
+  if(tds[0].value){
+   entrevistados.push([tds[0].value,tds[1].value,tds[2].value]);
+  }
+ });
+
+ if(entrevistados.length>0){
+  doc.autoTable({
+   startY:y,
+   head:[["Nome","Cargo","E-mail"]],
+   body:entrevistados,
+   theme:'grid',
+   styles:{fontSize:8}
+  });
+  y=doc.lastAutoTable.finalY+10;
+ }
+
+ estrutura.forEach((p,i)=>{
+  let soma=0;
+  const criticos=[];
+  p.perguntas.forEach((q,j)=>{
+   const nota=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+   soma+=nota;
+   if(nota<=2) criticos.push(q);
+  });
+  const media=(soma/p.perguntas.length).toFixed(2);
+
+  if(y>260){doc.addPage(); y=15;}
+
+  doc.setFontSize(11);
+  doc.text((i+1)+'. '+p.nome+' – Média: '+media,14,y);
+  y+=6;
+
+  doc.setFontSize(9);
+  if(criticos.length>0){
+   doc.text('Pontos Críticos:',16,y);
+   y+=5;
+   criticos.forEach(c=>{
+    const lines=doc.splitTextToSize('- '+c,170);
+    doc.text(lines,18,y);
+    y+=lines.length*4;
+   });
+  }else{
+   doc.text('Sem pontos críticos relevantes.',16,y);
+   y+=6;
+  }
+
+  doc.text('Recomendação: Revisar processos, reforçar controles e implementar plano de ação estruturado.',16,y);
+  y+=10;
+ });
+
+ doc.save('Diagnostico_Faturamento_Expedicao.pdf');
 }
+
 </script>
 
 </body>
