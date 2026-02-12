@@ -219,7 +219,7 @@ function calcular(){
  const maxIndex = radar.indexOf(Math.max(...radar));
  
  // Cria array de explosão: fatia com maior score recebe 20px, outras ficam normais
- const offset = radar.map((_, i) => i === maxIndex ? 20 : 0);
+ const offset = radar.map((_, i) => i === maxIndex ? 40 : 0);
  
  new Chart(document.getElementById('radar'),{
   type:'pie',
@@ -655,3 +655,4 @@ window.onload=function(){
 
 </body>
 </html>
+
