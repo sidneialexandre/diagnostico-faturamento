@@ -221,8 +221,8 @@ function calcular(){
  if (window.chartInstance) {
    window.chartInstance.destroy(); // Destroi gráfico anterior para evitar looping
  }
- canvas.style.width = '600px'; // Define largura fixa
- canvas.style.height = '400px'; // Define altura fixa
+ canvas.style.width = '800px'; // Define largura fixa
+ canvas.style.height = '600px'; // Define altura fixa
  window.chartInstance = new Chart(ctx, {
   type:'bar',
   data:{
@@ -710,3 +710,4 @@ window.onload=function(){
 
 </body>
 </html>
+
