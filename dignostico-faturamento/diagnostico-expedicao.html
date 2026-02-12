@@ -215,8 +215,15 @@ function calcular(){
  const score=(total/estrutura.reduce((a,b)=>a+b.peso,0)).toFixed(2);
  document.getElementById('resultado').innerText='Score Geral Ponderado: '+score;
  
- // Configuração do gráfico de barras
- new Chart(document.getElementById('radar'),{
+ // Configuração do gráfico de barras com tamanho fixo e prevenção de looping
+ const canvas = document.getElementById('radar');
+ const ctx = canvas.getContext('2d');
+ if (window.chartInstance) {
+   window.chartInstance.destroy(); // Destroi gráfico anterior para evitar looping
+ }
+ canvas.style.width = '600px'; // Define largura fixa
+ canvas.style.height = '400px'; // Define altura fixa
+ window.chartInstance = new Chart(ctx, {
   type:'bar',
   data:{
    labels:estrutura.map(p=>p.nome),
@@ -251,7 +258,7 @@ function calcular(){
    }]
   },
   options:{
-   responsive:true,
+   responsive:false, // Desativa responsividade para evitar expansão
    maintainAspectRatio:false,
    plugins:{
     legend:{
