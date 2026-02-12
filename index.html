@@ -13,22 +13,12 @@
 
     <main>
         <div id="login" class="container">
-            <h2>Login</h2>
-            <p>Faça login para acessar o formulário de diagnóstico.</p>
-
-            <div id="g_id_onload"
-                 data-client_id="SEU_CLIENT_ID_GOOGLE"
-                 data-callback="handleCredentialResponse"
-                 data-auto_prompt="false">
-            </div>
-            <div class="g_id_signin"
-                 data-type="standard"
-                 data-shape="rectangular"
-                 data-theme="outline"
-                 data-text="signin_with"
-                 data-size="large"
-                 data-logo_alignment="left">
-            </div>
+            <h2>Cadastro de Usuário</h2>
+            <form id="loginForm">
+                <input type="email" id="email" placeholder="Digite seu e-mail" required>
+                <input type="password" id="password" placeholder="Digite sua senha" required>
+                <button type="submit">Entrar</button>
+            </form>
         </div>
 
         <div id="diagnostico" class="container hidden">
@@ -37,61 +27,21 @@
         </div>
 
         <script>
-            function handleCredentialResponse(response) {
-                console.log("Encoded JWT ID token: " + response.credential);
-                // Simula autenticação bem-sucedida
-                document.getElementById('login').classList.add('hidden');
-                document.getElementById('diagnostico').classList.remove('hidden');
-            }
-        </script>
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
+            document.getElementById('loginForm').addEventListener('submit', function(event) {
+                event.preventDefault();
 
-        <script src="https://alcdn.msauth.net/browser/2.30.0/js/msal-browser.min.js"></script>
-        <script>
-            const msalConfig = {
-                auth: {
-                    clientId: "SEU_CLIENT_ID_MICROSOFT",
-                    authority: "https://login.microsoftonline.com/common",
-                    redirectUri: "http://localhost:8000"
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                if (email && password) {
+                    // Simula autenticação bem-sucedida
+                    document.getElementById('login').classList.add('hidden');
+                    document.getElementById('diagnostico').classList.remove('hidden');
+                } else {
+                    alert('Por favor, preencha todos os campos.');
                 }
-            };
-
-            const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-            function signInMicrosoft() {
-                const loginRequest = {
-                    scopes: ["User.Read"]
-                };
-
-                msalInstance.loginPopup(loginRequest)
-                    .then(response => {
-                        console.log("Microsoft Login Response:", response);
-                    })
-                    .catch(error => {
-                        console.error(error);
-                    });
-            }
-        </script>
-
-        <div style="text-align: center; margin-top: 20px;">
-            <button onclick="signInMicrosoft()">Login com Microsoft</button>
-        </div>
-
-        <script src="https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js"></script>
-        <script>
-            document.addEventListener("DOMContentLoaded", () => {
-                AppleID.auth.init({
-                    clientId: "SEU_CLIENT_ID_APPLE",
-                    scope: "name email",
-                    redirectURI: "http://localhost:8000",
-                    usePopup: true
-                });
             });
         </script>
-
-        <div style="text-align: center; margin-top: 20px;">
-            <div id="appleid-signin" class="signin-button" data-color="black" data-border="true" data-type="sign in"></div>
-        </div>
     </main>
 
     <footer>
