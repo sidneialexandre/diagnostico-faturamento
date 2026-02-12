@@ -26,6 +26,51 @@ table input{width:95%}
 <h1>Mapeamento e Diagnóstico de Processo</h1>
 
 <div class="card">
+<h2>Legenda de Classificação das Notas (0 a 5)</h2>
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<thead>
+<tr style="background:#eef2f5">
+<th style="border:1px solid #ccc;padding:6px;width:10%">Nota</th>
+<th style="border:1px solid #ccc;padding:6px">Classificação</th>
+<th style="border:1px solid #ccc;padding:6px">Significado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>0</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Inexistente</td>
+<td style="border:1px solid #ccc;padding:6px">Processo inexistente, totalmente informal ou não executado.</td>
+</tr>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>1</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Muito Deficiente</td>
+<td style="border:1px solid #ccc;padding:6px">Processo executado de forma reativa, sem padronização e com falhas frequentes.</td>
+</tr>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>2</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Deficiente</td>
+<td style="border:1px solid #ccc;padding:6px">Processo parcialmente estruturado, porém com inconsistências relevantes e retrabalhos recorrentes.</td>
+</tr>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>3</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Adequado</td>
+<td style="border:1px solid #ccc;padding:6px">Processo funcional e controlado, porém com oportunidades claras de melhoria.</td>
+</tr>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>4</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Bom</td>
+<td style="border:1px solid #ccc;padding:6px">Processo bem estruturado, com controles consistentes e baixo índice de falhas.</td>
+</tr>
+<tr>
+<td style="border:1px solid #ccc;padding:6px;text-align:center"><strong>5</strong></td>
+<td style="border:1px solid #ccc;padding:6px">Excelente / Otimizado</td>
+<td style="border:1px solid #ccc;padding:6px">Processo maduro, padronizado, monitorado por indicadores e com melhoria contínua ativa.</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="card">
 <h2>Identificação do Processo</h2>
 <label>Nome do Processo Avaliado:</label>
 <input type="text" id="nomeProcesso" style="width:100%" placeholder="Ex: Processo de Faturamento e Expedição – Unidade SC">
@@ -66,6 +111,13 @@ table input{width:95%}
 <button onclick="exportarPDF()">Exportar PDF</button>
 <button onclick="calcular()">Calcular Diagnóstico</button>
 </div>
+
+<div class="card">
+<h2>Carregar Diagnóstico Salvo</h2>
+<select id="listaDiagnosticos" style="width:70%"></select>
+<button onclick="carregarDiagnostico()">Carregar</button>
+</div>
+
 
 <script>
 
@@ -178,7 +230,7 @@ function adicionarEntrevistado(){
  tb.appendChild(tr);
 }
 
-function salvar(){
+/*function salvar(){
  const entrevistados=[];
  document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
   const tds=tr.querySelectorAll('input');
@@ -199,9 +251,53 @@ function salvar(){
  });
  localStorage.setItem('diagnostico_'+dados.data,JSON.stringify(dados));
  alert('Avaliação salva com sucesso');
+}*/
+
+function salvar(){
+
+ const entrevistados=[];
+ document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
+   const tds=tr.querySelectorAll('input');
+   if(tds[0].value){
+     entrevistados.push({
+       nome:tds[0].value,
+       cargo:tds[1].value,
+       email:tds[2].value
+     });
+   }
+ });
+
+ const nomeProcesso = document.getElementById('nomeProcesso')?.value || 'Processo não informado';
+ const dataRegistro = new Date().toISOString();
+
+ const dados={
+   id:dataRegistro,
+   nomeProcesso:nomeProcesso,
+   data:dataRegistro,
+   entrevistados:entrevistados,
+   respostas:{}
+ };
+
+ estrutura.forEach((p,i)=>{
+   dados.respostas[p.nome]=[];
+   p.perguntas.forEach((q,j)=>{
+     dados.respostas[p.nome].push({
+       pergunta:q,
+       nota:document.getElementById(`p${i}_${j}`).value || '',
+       obs:document.getElementById(`p${i}_${j}_obs`).value || ''
+     });
+   });
+ });
+
+ localStorage.setItem('diagnostico_'+dados.id,JSON.stringify(dados));
+
+ atualizarListaDiagnosticos();
+
+ alert('Avaliação salva com sucesso.');
 }
 
-async function exportarPDF(){
+
+/*async function exportarPDF(){
  const { jsPDF } = window.jspdf;
  const doc = new jsPDF('p','mm','a4');
  let y = 15;
@@ -324,7 +420,225 @@ async function exportarPDF(){
  });
 
  doc.save('Mapeamento_Diagnostico_Processo.pdf');
+}*/
+
+async function exportarPDF(){
+ const { jsPDF } = window.jspdf;
+ const doc = new jsPDF('p','mm','a4');
+ let y = 15;
+
+ doc.setFontSize(14);
+ doc.text('Mapeamento e Diagnóstico de Processo', 14, y);
+ y += 8;
+
+ doc.setFontSize(10);
+ doc.text('Data: ' + new Date().toLocaleString(), 14, y);
+ y += 6;
+
+ // ==============================
+ // CÁLCULO DO SCORE GERAL
+ // ==============================
+ let total=0;
+ const radarData=[];
+ estrutura.forEach((p,i)=>{
+   let soma=0;
+   p.perguntas.forEach((_,j)=>{
+     const v=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+     soma+=v;
+   });
+   const media=soma/p.perguntas.length;
+   radarData.push(media);
+   total+=media*p.peso;
+ });
+
+ const score=(total/estrutura.reduce((a,b)=>a+b.peso,0)).toFixed(2);
+
+ doc.setFontSize(12);
+ doc.text('Score Geral Ponderado: ' + score, 14, y);
+ y += 8;
+
+ // ==============================
+ // LEGENDA 0–5 (TABELA)
+ // ==============================
+ doc.autoTable({
+   startY: y,
+   head:[['Nota','Classificação']],
+   body:[
+     ['0','Inexistente'],
+     ['1','Muito fraco / informal'],
+     ['2','Baixo controle / alto risco'],
+     ['3','Estruturado parcialmente'],
+     ['4','Controlado e padronizado'],
+     ['5','Excelência / otimizado']
+   ],
+   theme:'grid',
+   styles:{fontSize:8}
+ });
+
+ y = doc.lastAutoTable.finalY + 8;
+
+ // ==============================
+ // GRÁFICO RADAR NO PDF
+ // ==============================
+ const canvas = document.getElementById('radar');
+ const imgData = canvas.toDataURL('image/png',1.0);
+
+ doc.addImage(imgData,'PNG',15,y,180,90);
+ y += 100;
+
+ // ==============================
+ // ENTREVISTADOS
+ // ==============================
+ const entrevistados = [];
+ document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
+  const tds = tr.querySelectorAll('input');
+  if(tds[0].value){
+    entrevistados.push([tds[0].value, tds[1].value, tds[2].value]);
+  }
+ });
+
+ if(entrevistados.length>0){
+   if(y>250){doc.addPage(); y=15;}
+   doc.autoTable({
+     startY: y,
+     head:[['Nome','Cargo','E-mail']],
+     body:entrevistados,
+     theme:'grid',
+     styles:{fontSize:8}
+   });
+   y = doc.lastAutoTable.finalY + 10;
+ }
+
+ // ==============================
+ // DETALHAMENTO POR PILAR (ESTRUTURA ORIGINAL)
+ // ==============================
+ estrutura.forEach((p,i)=>{
+   if(y>260){doc.addPage(); y=15;}
+
+   let soma=0;
+   const criticos=[];
+
+   doc.setFontSize(12);
+   doc.text((i+1)+'. '+p.nome,14,y);
+   y+=6;
+
+   doc.setFontSize(9);
+
+   p.perguntas.forEach((q,j)=>{
+     const nota=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
+     const obs=document.getElementById(`p${i}_${j}_obs`).value||'';
+     soma+=nota;
+
+     if(nota<=2) criticos.push(q);
+
+     let textoPergunta = 'Pergunta: '+q;
+     let textoNota = 'Nota: '+nota;
+     let textoObs = 'Observações: '+(obs ? obs : 'Não informado');
+
+     const linhasPergunta = doc.splitTextToSize(textoPergunta,170);
+     const linhasObs = doc.splitTextToSize(textoObs,170);
+
+     doc.text(linhasPergunta,16,y);
+     y+=linhasPergunta.length*4;
+
+     doc.text(textoNota,16,y);
+     y+=5;
+
+     doc.text(linhasObs,16,y);
+     y+=linhasObs.length*4+3;
+
+     if(y>260){doc.addPage(); y=15;}
+   });
+
+   const media=(soma/p.perguntas.length).toFixed(2);
+
+   doc.setFontSize(10);
+   doc.text('Média do Pilar: '+media,16,y);
+   y+=6;
+
+   doc.setFontSize(10);
+   doc.text('Resumo do Pilar:',16,y);
+   y+=5;
+
+   if(criticos.length>0){
+     doc.text('Pontos Críticos Identificados:',18,y);
+     y+=5;
+     criticos.forEach(c=>{
+       const lines=doc.splitTextToSize('- '+c,160);
+       doc.text(lines,20,y);
+       y+=lines.length*4;
+     });
+   } else {
+     doc.text('Sem pontos críticos relevantes.',18,y);
+     y+=5;
+   }
+
+   doc.text('Recomendação: Elaborar plano de ação estruturado com responsáveis, prazos e indicadores de acompanhamento.',18,y);
+   y+=10;
+ });
+
+ doc.save('Mapeamento_Diagnostico_Processo.pdf');
 }
+
+function atualizarListaDiagnosticos(){
+ const select=document.getElementById('listaDiagnosticos');
+ if(!select) return;
+
+ select.innerHTML='';
+
+ for(let i=0;i<localStorage.length;i++){
+   const chave=localStorage.key(i);
+   if(chave.startsWith('diagnostico_')){
+     const dados=JSON.parse(localStorage.getItem(chave));
+     const option=document.createElement('option');
+     option.value=chave;
+     option.textContent=dados.nomeProcesso+' - '+new Date(dados.data).toLocaleString();
+     select.appendChild(option);
+   }
+ }
+}
+
+function carregarDiagnostico(){
+
+ const chave=document.getElementById('listaDiagnosticos').value;
+ if(!chave) return;
+
+ const dados=JSON.parse(localStorage.getItem(chave));
+ if(!dados) return;
+
+ document.getElementById('nomeProcesso').value=dados.nomeProcesso || '';
+
+ // Entrevistados
+ const tbody=document.querySelector('#tabelaEntrevistados tbody');
+ tbody.innerHTML='';
+
+ dados.entrevistados.forEach(e=>{
+   const tr=document.createElement('tr');
+   tr.innerHTML=`
+     <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
+     <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
+     <td style='border:1px solid #ccc'><input value="${e.email}"></td>
+   `;
+   tbody.appendChild(tr);
+ });
+
+ // Respostas
+ estrutura.forEach((p,i)=>{
+   const respostasPilar=dados.respostas[p.nome];
+   if(!respostasPilar) return;
+
+   respostasPilar.forEach((r,j)=>{
+     document.getElementById(`p${i}_${j}`).value=r.nota;
+     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
+   });
+ });
+
+ alert('Diagnóstico carregado com sucesso.');
+}
+
+window.onload=function(){
+ atualizarListaDiagnosticos();
+};
 
 </script>
 
