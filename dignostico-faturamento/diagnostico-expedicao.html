@@ -507,6 +507,10 @@ async function exportarPDF(){
  doc.text('Data: ' + new Date().toLocaleString(), 14, y);
  y += 6;
 
+ const nomeProcesso = document.getElementById('nomeProcesso').value || 'Nenhum processo informado';
+ doc.text('Processo Avaliado: ' + nomeProcesso, 14, y);
+ y += 6;
+
  // ==============================
  // CÁLCULO DO SCORE GERAL
  // ==============================
@@ -716,6 +720,7 @@ window.onload=function(){
 
 </body>
 </html>
+
 
 
 
