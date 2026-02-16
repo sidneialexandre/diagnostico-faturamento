@@ -554,13 +554,13 @@ async function exportarPDF(){
  y = doc.lastAutoTable.finalY + 8;
 
  // ==============================
- // GRÁFICO RADAR NO PDF
+ // GRÁFICO BARRA NO PDF
  // ==============================
- /*const canvas = document.getElementById('radar');
+ const canvas = document.getElementById('radar');
  const imgData = canvas.toDataURL('image/png',1.0);
 
  doc.addImage(imgData,'PNG',15,y,180,90);
- y += 100;*/
+ y += 100;
 
  // ==============================
  // ENTREVISTADOS
@@ -720,6 +720,7 @@ window.onload=function(){
 
 </body>
 </html>
+
 
 
 
