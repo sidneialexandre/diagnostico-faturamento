@@ -20,7 +20,7 @@ button{padding:16px 18px;font-size:20px;margin-right:10px}
 .section-desc{font-style:italic;color:#555;margin-bottom:15px}
 table input{width:95%}
 </style>
-<style>
+ <style>
   #radar {
     display: block;
     margin: 0 auto; /* Centraliza o gráfico horizontalmente */
@@ -227,7 +227,7 @@ function calcular(){
  if (window.chartInstance) {
    window.chartInstance.destroy(); // Destroi gráfico anterior para evitar looping
  }
- canvas.style.width = '1000px'; // Define largura fixa
+ canvas.style.width = '1200px'; // Define largura fixa
  canvas.style.height = '800px'; // Define altura fixa
  window.chartInstance = new Chart(ctx, {
   type:'bar',
@@ -361,9 +361,7 @@ function salvar(){
    });
  });
 
- // localStorage.setItem('diagnostico_'+dados.id,JSON.stringify(dados));
-
- localStorage.setItem('ultimo_diagnostico', JSON.stringify(dados));
+ localStorage.setItem('diagnostico_'+dados.id,JSON.stringify(dados));
 
  atualizarListaDiagnosticos();
 
@@ -716,15 +714,17 @@ function carregarDiagnostico(){
 
 window.onload=function(){
  atualizarListaDiagnosticos();
-
- const ultimo = localStorage.getItem('ultimo_diagnostico');
- if(ultimo){
-   const dados = JSON.parse(ultimo);
-   document.getElementById('nomeProcesso').value = dados.nomeProcesso || '';
- }
 };
 
 </script>
 
 </body>
 </html>
+
+
+
+
+
+
+
+
