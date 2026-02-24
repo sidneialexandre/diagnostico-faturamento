@@ -20,7 +20,7 @@ button{padding:16px 18px;font-size:20px;margin-right:10px}
 .section-desc{font-style:italic;color:#555;margin-bottom:15px}
 table input{width:95%}
 </style>
- <style>
+<style>
   #radar {
     display: block;
     margin: 0 auto; /* Centraliza o gráfico horizontalmente */
@@ -227,7 +227,7 @@ function calcular(){
  if (window.chartInstance) {
    window.chartInstance.destroy(); // Destroi gráfico anterior para evitar looping
  }
- canvas.style.width = '1200px'; // Define largura fixa
+ canvas.style.width = '1000px'; // Define largura fixa
  canvas.style.height = '800px'; // Define altura fixa
  window.chartInstance = new Chart(ctx, {
   type:'bar',
@@ -361,13 +361,16 @@ function salvar(){
    });
  });
 
- localStorage.setItem('diagnostico_'+dados.id,JSON.stringify(dados));
+ // ✔ SALVA HISTÓRICO
+ localStorage.setItem('diagnostico_'+dados.id, JSON.stringify(dados));
+
+ // ✔ SALVA ÚLTIMA VERSÃO
+ localStorage.setItem('ultimo_diagnostico', JSON.stringify(dados));
 
  atualizarListaDiagnosticos();
 
  alert('Avaliação salva com sucesso.');
 }
-
 
 /*async function exportarPDF(){
  const { jsPDF } = window.jspdf;
@@ -713,18 +716,46 @@ function carregarDiagnostico(){
 }
 
 window.onload=function(){
+
  atualizarListaDiagnosticos();
+
+ const ultimo = localStorage.getItem('ultimo_diagnostico');
+ if(!ultimo) return;
+
+ const dados = JSON.parse(ultimo);
+
+ document.getElementById('nomeProcesso').value = dados.nomeProcesso || '';
+
+ // Restaurar entrevistados
+ const tbody=document.querySelector('#tabelaEntrevistados tbody');
+ tbody.innerHTML='';
+
+ if(dados.entrevistados && dados.entrevistados.length){
+   dados.entrevistados.forEach(e=>{
+     const tr=document.createElement('tr');
+     tr.innerHTML=`
+       <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
+       <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
+       <td style='border:1px solid #ccc'><input value="${e.email}"></td>
+     `;
+     tbody.appendChild(tr);
+   });
+ }
+
+ // Restaurar respostas
+ estrutura.forEach((p,i)=>{
+   const respostasPilar=dados.respostas[p.nome];
+   if(!respostasPilar) return;
+
+   respostasPilar.forEach((r,j)=>{
+     document.getElementById(`p${i}_${j}`).value=r.nota;
+     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
+   });
+ });
+
 };
 
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
