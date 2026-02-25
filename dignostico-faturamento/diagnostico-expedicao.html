@@ -82,6 +82,9 @@ table input{width:95%}
 <input type="text" id="nomeProcesso" style="width:100%" placeholder="Ex: Processo de Faturamento e Expedição – Unidade SC">
 </div>
 
+<input type="hidden" id="processoId">
+<input type="hidden" id="modoEdicao" value="novo">
+
 <div class="card">
 <h2>Identificação dos Entrevistados</h2>
 <p class="section-desc">Informe todos os participantes da entrevista. Utilize uma linha por pessoa.</p>
@@ -205,6 +208,16 @@ estrutura.forEach((p,i)=>{
  form.appendChild(card);
 });
 
+/* Função para gerar UUID simples para identificação única de processos */
+function gerarUUID(){
+ return 'xxxx-xxxx-4xxx-yxxx-xxxxxx'.replace(/[xy]/g,function(c){
+   const r=Math.random()*16|0;
+   const v=c==='x'?r:(r&0x3|0x8);
+   return v.toString(16);
+ });
+}
+
+/* Função de cálculo do diagnóstico com gráfico de barras e prevenção de looping */
 function calcular(){
  let total=0;
  const scores=[];
@@ -296,6 +309,7 @@ function calcular(){
  });
 }
 
+/* Função para adicionar nova linha de entrevistado na tabela */
 function adicionarEntrevistado(){
  const tb=document.querySelector('#tabelaEntrevistados tbody');
  const tr=document.createElement('tr');
@@ -304,29 +318,6 @@ function adicionarEntrevistado(){
 }
 
 /*function salvar(){
- const entrevistados=[];
- document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
-  const tds=tr.querySelectorAll('input');
-  if(tds[0].value){
-   entrevistados.push({nome:tds[0].value,cargo:tds[1].value,email:tds[2].value});
-  }
- });
- const dados={data:new Date().toISOString(),entrevistados,respostas:{}};
- estrutura.forEach((p,i)=>{
-  dados.respostas[p.nome]=[];
-  p.perguntas.forEach((q,j)=>{
-   dados.respostas[p.nome].push({
-    pergunta:q,
-    nota:document.getElementById(`p${i}_${j}`).value,
-    obs:document.getElementById(`p${i}_${j}_obs`).value
-   });
-  });
- localStorage.setItem('diagnostico_'+dados.data,JSON.stringify(dados));
- alert('Avaliação salva com sucesso');
-}*/
-
-function salvar(){
-
  const entrevistados=[];
  document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
    const tds=tr.querySelectorAll('input');
@@ -370,133 +361,109 @@ function salvar(){
  atualizarListaDiagnosticos();
 
  alert('Avaliação salva com sucesso.');
-}
-
-/*async function exportarPDF(){
- const { jsPDF } = window.jspdf;
- const doc = new jsPDF('p','mm','a4');
- let y = 15;
-
- // Calcular scores
- let total=0;
- const radarData=[];
- estrutura.forEach((p,i)=>{
-  let soma=0;
-  p.perguntas.forEach((_,j)=>{
-   const v=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
-   soma+=v;
-  });
-  const media=soma/p.perguntas.length;
-  radarData.push(media);
-  total+=media*p.peso;
- });
- const scoreGeral=(total/estrutura.reduce((a,b)=>a+b.peso,0)).toFixed(2);
-
- doc.setFontSize(16);
- doc.text('Mapeamento e Diagnóstico de Processo', 14, y);
- y += 8;
-
- doc.setFontSize(11);
- const nomeProcesso = document.getElementById('nomeProcesso')?.value || 'Não informado';
- doc.text('Processo: ' + nomeProcesso, 14, y);
- y += 6;
- doc.text('Data: ' + new Date().toLocaleString(), 14, y);
- y += 6;
- doc.setFontSize(12);
- doc.text('Score Geral Ponderado: ' + scoreGeral, 14, y);
- y += 10;
-
- // Gerar gráfico radar como imagem
- const canvasRadar = document.getElementById('radar');
- const imgData = canvasRadar.toDataURL('image/png',1.0);
- doc.addImage(imgData,'PNG',15,y,180,80);
- y += 90;
-
- // Entrevistados
- const entrevistados=[];
- document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
-  const tds=tr.querySelectorAll('input');
-  if(tds[0].value){
-   entrevistados.push([tds[0].value,tds[1].value,tds[2].value]);
-  }
- });
-
- if(entrevistados.length>0){
-  doc.autoTable({
-   startY:y,
-   head:[["Nome","Cargo","E-mail"]],
-   body:entrevistados,
-   theme:'grid',
-   styles:{fontSize:8}
-  });
-  y=doc.lastAutoTable.finalY+10;
- }
-
- // Detalhamento completo por Pilar
- estrutura.forEach((p,i)=>{
-  if(y>260){doc.addPage(); y=15;}
-
-  doc.setFontSize(12);
-  doc.text((i+1)+'. '+p.nome,14,y);
-  y+=6;
-
-  let soma=0;
-  const criticos=[];
-
-  p.perguntas.forEach((q,j)=>{
-   const nota=parseFloat(document.getElementById(`p${i}_${j}`).value)||0;
-   const obs=document.getElementById(`p${i}_${j}_obs`).value || '';
-   soma+=nota;
-   if(nota<=2) criticos.push(q);
-
-   if(y>260){doc.addPage(); y=15;}
-
-   doc.setFontSize(9);
-   const perguntaLines=doc.splitTextToSize('Pergunta: '+q,170);
-   doc.text(perguntaLines,16,y);
-   y+=perguntaLines.length*4;
-
-   doc.text('Nota: '+nota,18,y);
-   y+=4;
-
-   if(obs){
-    const obsLines=doc.splitTextToSize('Observações: '+obs,165);
-    doc.text(obsLines,18,y);
-    y+=obsLines.length*4;
-   }
-
-   y+=4;
-  });
-
-  const media=(soma/p.perguntas.length).toFixed(2);
-
-  if(y>250){doc.addPage(); y=15;}
-
-  doc.setFontSize(11);
-  doc.text('Resumo do Pilar – Média: '+media,16,y);
-  y+=6;
-
-  doc.setFontSize(9);
-  if(criticos.length>0){
-   doc.text('Pontos Críticos Identificados:',18,y);
-   y+=5;
-   criticos.forEach(c=>{
-    const lines=doc.splitTextToSize('- '+c,165);
-    doc.text(lines,20,y);
-    y+=lines.length*4;
-   });
-  } else {
-   doc.text('Não foram identificados pontos críticos relevantes neste pilar.',18,y);
-   y+=6;
-  }
-
-  doc.text('Direcionamento de Melhoria: Revisar fluxos, reforçar controles e estruturar plano de ação específico para as fragilidades identificadas.',18,y);
-  y+=10;
- });
-
- doc.save('Mapeamento_Diagnostico_Processo.pdf');
 }*/
 
+/* Função de salvamento aprimorada com controle de versões e backup em JSON */
+function salvar(){
+
+ const entrevistados=[];
+ document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
+   const tds=tr.querySelectorAll('input');
+   if(tds[0].value){
+     entrevistados.push({
+       nome:tds[0].value,
+       cargo:tds[1].value,
+       email:tds[2].value
+     });
+   }
+ });
+
+ const nomeProcesso = document.getElementById('nomeProcesso').value || 'Processo não informado';
+
+ let processoId = document.getElementById('processoId').value;
+ let modoEdicao = document.getElementById('modoEdicao').value;
+
+ if(!processoId){
+   processoId = gerarUUID();
+   document.getElementById('processoId').value = processoId;
+ }
+
+ const dadosFormulario={
+   nomeProcesso:nomeProcesso,
+   entrevistados:entrevistados,
+   respostas:{}
+ };
+
+ estrutura.forEach((p,i)=>{
+   dadosFormulario.respostas[p.nome]=[];
+   p.perguntas.forEach((q,j)=>{
+     dadosFormulario.respostas[p.nome].push({
+       pergunta:q,
+       nota:document.getElementById(`p${i}_${j}`).value || '',
+       obs:document.getElementById(`p${i}_${j}_obs`).value || ''
+     });
+   });
+ });
+
+ const chave='processo_'+processoId;
+ let registroExistente=localStorage.getItem(chave);
+ let objetoProcesso;
+
+ if(registroExistente){
+   objetoProcesso=JSON.parse(registroExistente);
+ }else{
+   objetoProcesso={
+     processoId:processoId,
+     nomeProcesso:nomeProcesso,
+     versoes:[]
+   };
+ }
+
+ let numeroVersao=1;
+
+ if(objetoProcesso.versoes.length>0){
+   numeroVersao=objetoProcesso.versoes[objetoProcesso.versoes.length-1].versao+1;
+ }
+
+ // Se for update, substitui última versão
+ if(modoEdicao==='editar' && objetoProcesso.versoes.length>0){
+   numeroVersao=objetoProcesso.versoes[objetoProcesso.versoes.length-1].versao;
+   objetoProcesso.versoes.pop();
+ }
+
+ objetoProcesso.versoes.push({
+   versao:numeroVersao,
+   data:new Date().toISOString(),
+   dados:dadosFormulario
+ });
+
+ localStorage.setItem(chave,JSON.stringify(objetoProcesso));
+
+ document.getElementById('modoEdicao').value='editar';
+
+ atualizarListaDiagnosticos();
+
+ gerarBackupJSON(objetoProcesso);
+
+ alert('Processo salvo com sucesso. Versão '+numeroVersao);
+}
+
+/* Função para gerar backup em JSON do processo salvo */
+function gerarBackupJSON(objeto){
+
+ const blob=new Blob([JSON.stringify(objeto,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);
+
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="backup_processo_"+objeto.processoId+".json";
+ a.click();
+
+ URL.revokeObjectURL(url);
+}
+
+
+/* Função de exportação para PDF aprimorada com layout otimizado e detalhamento completo por pilar */
 async function exportarPDF(){
  const { jsPDF } = window.jspdf;
  const doc = new jsPDF('p','mm','a4');
@@ -659,7 +626,8 @@ async function exportarPDF(){
  doc.save('Mapeamento_Diagnostico_Processo.pdf');
 }
 
-function atualizarListaDiagnosticos(){
+/* Função para atualizar a lista de diagnósticos salvos no localStorage */
+/*function atualizarListaDiagnosticos(){
  const select=document.getElementById('listaDiagnosticos');
  if(!select) return;
 
@@ -675,9 +643,34 @@ function atualizarListaDiagnosticos(){
      select.appendChild(option);
    }
  }
+}*/
+
+/* Função aprimorada para atualizar a lista de diagnósticos salvos, agora considerando controle de versões e exibindo versão e data */
+function atualizarListaDiagnosticos(){
+
+ const select=document.getElementById('listaDiagnosticos');
+ select.innerHTML='';
+
+ for(let i=0;i<localStorage.length;i++){
+   const chave=localStorage.key(i);
+
+   if(chave.startsWith('processo_')){
+     const objeto=JSON.parse(localStorage.getItem(chave));
+     const ultimaVersao=objeto.versoes[objeto.versoes.length-1];
+
+     const option=document.createElement('option');
+     option.value=chave;
+     option.textContent=objeto.nomeProcesso+
+       ' | Versão '+ultimaVersao.versao+
+       ' | '+new Date(ultimaVersao.data).toLocaleString();
+
+     select.appendChild(option);
+   }
+ }
 }
 
-function carregarDiagnostico(){
+/* Função para carregar diagnóstico salvo selecionado na lista */
+/*function carregarDiagnostico(){
 
  const chave=document.getElementById('listaDiagnosticos').value;
  if(!chave) return;
@@ -713,6 +706,47 @@ function carregarDiagnostico(){
  });
 
  alert('Diagnóstico carregado com sucesso.');
+}*/
+
+/* Função aprimorada para carregar diagnóstico salvo, agora considerando controle de versões e exibindo última versão para edição */
+function carregarDiagnostico(){
+
+ const chave=document.getElementById('listaDiagnosticos').value;
+ if(!chave) return;
+
+ const objeto=JSON.parse(localStorage.getItem(chave));
+ const ultimaVersao=objeto.versoes[objeto.versoes.length-1];
+
+ document.getElementById('processoId').value=objeto.processoId;
+ document.getElementById('modoEdicao').value='editar';
+ document.getElementById('nomeProcesso').value=objeto.nomeProcesso;
+
+ const dados=ultimaVersao.dados;
+
+ const tbody=document.querySelector('#tabelaEntrevistados tbody');
+ tbody.innerHTML='';
+
+ dados.entrevistados.forEach(e=>{
+   const tr=document.createElement('tr');
+   tr.innerHTML=`
+     <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
+     <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
+     <td style='border:1px solid #ccc'><input value="${e.email}"></td>
+   `;
+   tbody.appendChild(tr);
+ });
+
+ estrutura.forEach((p,i)=>{
+   const respostasPilar=dados.respostas[p.nome];
+   if(!respostasPilar) return;
+
+   respostasPilar.forEach((r,j)=>{
+     document.getElementById(`p${i}_${j}`).value=r.nota;
+     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
+   });
+ });
+
+ alert('Processo carregado para edição.');
 }
 
 window.onload=function(){
