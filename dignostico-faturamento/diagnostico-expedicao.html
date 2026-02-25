@@ -129,7 +129,7 @@ table input{width:95%}
 
 
 <script>
-
+/* Estrutura do diagnóstico com pilares, peso e perguntas associadas */
 const estrutura=[
 {nome:'Governança do Processo (Visão Geral)',peso:1,perguntas:[
 'Existe definição clara de papéis e responsabilidades entre Faturamento, Expedição e Comercial?',
@@ -193,6 +193,7 @@ const estrutura=[
 ]}
 ];
 
+/* Geração dinâmica do formulário com base na estrutura definida */
 const form=document.getElementById('formulario');
 estrutura.forEach((p,i)=>{
  const card=document.createElement('div');
@@ -626,24 +627,6 @@ async function exportarPDF(){
  doc.save('Mapeamento_Diagnostico_Processo.pdf');
 }
 
-/* Função para atualizar a lista de diagnósticos salvos no localStorage */
-/*function atualizarListaDiagnosticos(){
- const select=document.getElementById('listaDiagnosticos');
- if(!select) return;
-
- select.innerHTML='';
-
- for(let i=0;i<localStorage.length;i++){
-   const chave=localStorage.key(i);
-   if(chave.startsWith('diagnostico_')){
-     const dados=JSON.parse(localStorage.getItem(chave));
-     const option=document.createElement('option');
-     option.value=chave;
-     option.textContent=dados.nomeProcesso+' - '+new Date(dados.data).toLocaleString();
-     select.appendChild(option);
-   }
- }
-}*/
 
 /* Função aprimorada para atualizar a lista de diagnósticos salvos, agora considerando controle de versões e exibindo versão e data */
 function atualizarListaDiagnosticos(){
