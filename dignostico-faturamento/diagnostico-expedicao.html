@@ -129,6 +129,103 @@ table input{width:95%}
 
 
 <script>
+
+// ==============================
+// CONFIGURAÇÃO DO INDEXEDDB
+// ==============================
+const DB_NAME = 'DiagnosticoProcessosDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'processos';
+
+let db;
+
+function abrirDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error);
+
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'processoId' });
+        store.createIndex('nomeProcesso', 'nomeProcesso', { unique: false });
+        store.createIndex('data', 'ultimaAtualizacao', { unique: false });
+      }
+    };
+  });
+}
+
+// ==============================
+// SALVAR PROCESSO (COM VERSIONAMENTO)
+// ==============================
+async function salvarIndexedDB(objetoProcesso) {
+  const database = await abrirDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+
+    objetoProcesso.ultimaAtualizacao = new Date().toISOString();
+
+    const request = store.put(objetoProcesso);
+
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ==============================
+// BUSCAR PROCESSO POR ID
+// ==============================
+async function buscarProcesso(processoId) {
+  const database = await abrirDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+
+    const request = store.get(processoId);
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ==============================
+// LISTAR TODOS OS PROCESSOS
+// ==============================
+async function listarProcessos() {
+  const database = await abrirDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      const lista = request.result || [];
+
+      lista.sort((a, b) => {
+        return new Date(b.ultimaAtualizacao) - new Date(a.ultimaAtualizacao);
+      });
+
+      resolve(lista);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
+}
+
+
+
 /* Estrutura do diagnóstico com pilares, peso e perguntas associadas */
 const estrutura=[
 {nome:'Governança do Processo (Visão Geral)',peso:1,perguntas:[
@@ -318,149 +415,82 @@ function adicionarEntrevistado(){
  tb.appendChild(tr);
 }
 
-/*function salvar(){
- const entrevistados=[];
- document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
-   const tds=tr.querySelectorAll('input');
-   if(tds[0].value){
-     entrevistados.push({
-       nome:tds[0].value,
-       cargo:tds[1].value,
-       email:tds[2].value
-     });
-   }
- });
 
- const nomeProcesso = document.getElementById('nomeProcesso')?.value || 'Processo não informado';
- const dataRegistro = new Date().toISOString();
+// ====================================
+// SALVAR (SUBSTITUI SUA FUNÇÃO ATUAL)
+// ====================================
+async function salvar() {
+  const entrevistados = [];
 
- const dados={
-   id:dataRegistro,
-   nomeProcesso:nomeProcesso,
-   data:dataRegistro,
-   entrevistados:entrevistados,
-   respostas:{}
- };
+  document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr => {
+    const tds = tr.querySelectorAll('input');
+    if (tds[0].value) {
+      entrevistados.push({
+        nome: tds[0].value,
+        cargo: tds[1].value,
+        email: tds[2].value
+      });
+    }
+  });
 
- estrutura.forEach((p,i)=>{
-   dados.respostas[p.nome]=[];
-   p.perguntas.forEach((q,j)=>{
-     dados.respostas[p.nome].push({
-       pergunta:q,
-       nota:document.getElementById(`p${i}_${j}`).value || '',
-       obs:document.getElementById(`p${i}_${j}_obs`).value || ''
-     });
-   });
- });
+  const nomeProcesso = document.getElementById('nomeProcesso').value || 'Processo não informado';
 
- // ✔ SALVA HISTÓRICO
- localStorage.setItem('diagnostico_'+dados.id, JSON.stringify(dados));
+  let processoId = document.getElementById('processoId').value;
 
- // ✔ SALVA ÚLTIMA VERSÃO
- localStorage.setItem('ultimo_diagnostico', JSON.stringify(dados));
+  if (!processoId) {
+    processoId = gerarUUID();
+    document.getElementById('processoId').value = processoId;
+  }
 
- atualizarListaDiagnosticos();
+  let objetoProcesso = await buscarProcesso(processoId);
 
- alert('Avaliação salva com sucesso.');
-}*/
+  if (!objetoProcesso) {
+    objetoProcesso = {
+      processoId,
+      nomeProcesso,
+      versoes: []
+    };
+  }
 
-/* Função de salvamento aprimorada com controle de versões e backup em JSON */
-function salvar(){
+  objetoProcesso.nomeProcesso = nomeProcesso;
 
- const entrevistados=[];
- document.querySelectorAll('#tabelaEntrevistados tbody tr').forEach(tr=>{
-   const tds=tr.querySelectorAll('input');
-   if(tds[0].value){
-     entrevistados.push({
-       nome:tds[0].value,
-       cargo:tds[1].value,
-       email:tds[2].value
-     });
-   }
- });
+  const dadosFormulario = {
+    nomeProcesso,
+    entrevistados,
+    respostas: {}
+  };
 
- const nomeProcesso = document.getElementById('nomeProcesso').value || 'Processo não informado';
+  estrutura.forEach((p, i) => {
+    dadosFormulario.respostas[p.nome] = [];
 
- let processoId = document.getElementById('processoId').value;
- let modoEdicao = document.getElementById('modoEdicao').value;
+    p.perguntas.forEach((q, j) => {
+      dadosFormulario.respostas[p.nome].push({
+        pergunta: q,
+        nota: parseFloat(document.getElementById(`p${i}_${j}`).value) || 0,
+        obs: document.getElementById(`p${i}_${j}_obs`).value || ''
+      });
+    });
+  });
 
- if(!processoId){
-   processoId = gerarUUID();
-   document.getElementById('processoId').value = processoId;
- }
+  let numeroVersao = 1;
 
- const dadosFormulario={
-   nomeProcesso:nomeProcesso,
-   entrevistados:entrevistados,
-   respostas:{}
- };
+  if (objetoProcesso.versoes.length > 0) {
+    numeroVersao = objetoProcesso.versoes.slice(-1)[0].versao + 1;
+  }
 
- estrutura.forEach((p,i)=>{
-   dadosFormulario.respostas[p.nome]=[];
-   p.perguntas.forEach((q,j)=>{
-     dadosFormulario.respostas[p.nome].push({
-       pergunta:q,
-       nota:document.getElementById(`p${i}_${j}`).value || '',
-       obs:document.getElementById(`p${i}_${j}_obs`).value || ''
-     });
-   });
- });
+  objetoProcesso.versoes.push({
+    versao: numeroVersao,
+    data: new Date().toISOString(),
+    dados: dadosFormulario
+  });
 
- const chave='processo_'+processoId;
- let registroExistente=localStorage.getItem(chave);
- let objetoProcesso;
+  await salvarIndexedDB(objetoProcesso);
 
- if(registroExistente){
-   objetoProcesso=JSON.parse(registroExistente);
- }else{
-   objetoProcesso={
-     processoId:processoId,
-     nomeProcesso:nomeProcesso,
-     versoes:[]
-   };
- }
+  await atualizarListaDiagnosticosIndexed();
 
- let numeroVersao=1;
+  gerarBackupJSON(objetoProcesso);
 
- if(objetoProcesso.versoes.length>0){
-   numeroVersao=objetoProcesso.versoes[objetoProcesso.versoes.length-1].versao+1;
- }
-
- // Se for update, substitui última versão
- if(modoEdicao==='editar' && objetoProcesso.versoes.length>0){
-   numeroVersao=objetoProcesso.versoes[objetoProcesso.versoes.length-1].versao;
-   objetoProcesso.versoes.pop();
- }
-
- objetoProcesso.versoes.push({
-   versao:numeroVersao,
-   data:new Date().toISOString(),
-   dados:dadosFormulario
- });
-
- localStorage.setItem(chave,JSON.stringify(objetoProcesso));
-
- document.getElementById('modoEdicao').value='editar';
-
- atualizarListaDiagnosticos();
-
- gerarBackupJSON(objetoProcesso);
-
- alert('Processo salvo com sucesso. Versão '+numeroVersao);
-}
-
-/* Função para gerar backup em JSON do processo salvo */
-function gerarBackupJSON(objeto){
-
- const blob=new Blob([JSON.stringify(objeto,null,2)],{type:"application/json"});
- const url=URL.createObjectURL(blob);
-
- const a=document.createElement("a");
- a.href=url;
- a.download="backup_processo_"+objeto.processoId+".json";
- a.click();
-
- URL.revokeObjectURL(url);
+  alert('Processo salvo com sucesso (IndexedDB). Versão ' + numeroVersao);
 }
 
 
@@ -628,116 +658,86 @@ async function exportarPDF(){
 }
 
 
-/* Função aprimorada para atualizar a lista de diagnósticos salvos, agora considerando controle de versões e exibindo versão e data */
-function atualizarListaDiagnosticos(){
+// ==============================
+// ATUALIZAR LISTA (UI)
+// ==============================
+async function atualizarListaDiagnosticosIndexed() {
+  const select = document.getElementById('listaDiagnosticos');
+  select.innerHTML = '';
 
- const select=document.getElementById('listaDiagnosticos');
- select.innerHTML='';
+  const processos = await listarProcessos();
 
- for(let i=0;i<localStorage.length;i++){
-   const chave=localStorage.key(i);
+  processos.forEach(p => {
+    const ultimaVersao = p.versoes[p.versoes.length - 1];
 
-   if(chave.startsWith('processo_')){
-     const objeto=JSON.parse(localStorage.getItem(chave));
-     const ultimaVersao=objeto.versoes[objeto.versoes.length-1];
+    const option = document.createElement('option');
+    option.value = p.processoId;
+    option.textContent = `${p.nomeProcesso} | Versão ${ultimaVersao.versao} | ${new Date(ultimaVersao.data).toLocaleString()}`;
 
-     const option=document.createElement('option');
-     option.value=chave;
-     option.textContent=objeto.nomeProcesso+
-       ' | Versão '+ultimaVersao.versao+
-       ' | '+new Date(ultimaVersao.data).toLocaleString();
-
-     select.appendChild(option);
-   }
- }
+    select.appendChild(option);
+  });
 }
 
-/* Função para carregar diagnóstico salvo selecionado na lista */
-/*function carregarDiagnostico(){
+// ==============================
+// CARREGAR PROCESSO
+// ==============================
+async function carregarDiagnostico() {
+  const processoId = document.getElementById('listaDiagnosticos').value;
 
- const chave=document.getElementById('listaDiagnosticos').value;
- if(!chave) return;
+  if (!processoId) return;
 
- const dados=JSON.parse(localStorage.getItem(chave));
- if(!dados) return;
+  const objeto = await buscarProcesso(processoId);
 
- document.getElementById('nomeProcesso').value=dados.nomeProcesso || '';
+  if (!objeto || !objeto.versoes.length) {
+    alert('Registro inválido.');
+    return;
+  }
 
- // Entrevistados
- const tbody=document.querySelector('#tabelaEntrevistados tbody');
- tbody.innerHTML='';
+  const ultimaVersao = objeto.versoes.slice(-1)[0];
 
- dados.entrevistados.forEach(e=>{
-   const tr=document.createElement('tr');
-   tr.innerHTML=`
-     <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
-     <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
-     <td style='border:1px solid #ccc'><input value="${e.email}"></td>
-   `;
-   tbody.appendChild(tr);
- });
+  document.getElementById('processoId').value = objeto.processoId;
+  document.getElementById('nomeProcesso').value = objeto.nomeProcesso;
 
- // Respostas
- estrutura.forEach((p,i)=>{
-   const respostasPilar=dados.respostas[p.nome];
-   if(!respostasPilar) return;
+  const dados = ultimaVersao.dados;
 
-   respostasPilar.forEach((r,j)=>{
-     document.getElementById(`p${i}_${j}`).value=r.nota;
-     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
-   });
- });
+  const tbody = document.querySelector('#tabelaEntrevistados tbody');
+  tbody.innerHTML = '';
 
- alert('Diagnóstico carregado com sucesso.');
-}*/
+  dados.entrevistados.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input value="${e.nome}"></td>
+      <td><input value="${e.cargo}"></td>
+      <td><input value="${e.email}"></td>
+    `;
+    tbody.appendChild(tr);
+  });
 
-/* Função aprimorada para carregar diagnóstico salvo, agora considerando controle de versões e exibindo última versão para edição */
-function carregarDiagnostico(){
+  estrutura.forEach((p, i) => {
+    const respostas = dados.respostas[p.nome];
 
- const chave=document.getElementById('listaDiagnosticos').value;
- if(!chave) return;
+    if (!respostas) return;
 
- const objeto=JSON.parse(localStorage.getItem(chave));
- const ultimaVersao=objeto.versoes[objeto.versoes.length-1];
+    respostas.forEach((r, j) => {
+      document.getElementById(`p${i}_${j}`).value = r.nota;
+      document.getElementById(`p${i}_${j}_obs`).value = r.obs;
+    });
+  });
 
- document.getElementById('processoId').value=objeto.processoId;
- document.getElementById('modoEdicao').value='editar';
- document.getElementById('nomeProcesso').value=objeto.nomeProcesso;
-
- const dados=ultimaVersao.dados;
-
- const tbody=document.querySelector('#tabelaEntrevistados tbody');
- tbody.innerHTML='';
-
- dados.entrevistados.forEach(e=>{
-   const tr=document.createElement('tr');
-   tr.innerHTML=`
-     <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
-     <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
-     <td style='border:1px solid #ccc'><input value="${e.email}"></td>
-   `;
-   tbody.appendChild(tr);
- });
-
- estrutura.forEach((p,i)=>{
-   const respostasPilar=dados.respostas[p.nome];
-   if(!respostasPilar) return;
-
-   respostasPilar.forEach((r,j)=>{
-     document.getElementById(`p${i}_${j}`).value=r.nota;
-     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
-   });
- });
-
- alert('Processo carregado para edição.');
+  alert('Processo carregado com sucesso (IndexedDB).');
 }
 
 window.onload=function(){
 
  atualizarListaDiagnosticos();
 
- const ultimo = localStorage.getItem('ultimo_diagnostico');
- if(!ultimo) return;
+// ==============================
+// INIT
+// ==============================
+window.onload = async function () {
+  await abrirDB();
+  await atualizarListaDiagnosticosIndexed();
+};
 
  const dados = JSON.parse(ultimo);
 
