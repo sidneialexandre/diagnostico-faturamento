@@ -84,6 +84,7 @@ table input{width:95%}
 
 <input type="hidden" id="processoId">
 <input type="hidden" id="modoEdicao" value="novo">
+<input type="checkbox" id="autoBackup"> Backup automático em JSON ao salvar
 
 <div class="card">
 <h2>Identificação dos Entrevistados</h2>
@@ -493,11 +494,55 @@ async function salvar() {
   await atualizarListaDiagnosticosIndexed();
 
   
-  //gerarBackupJSON(objetoProcesso);
+  gerarBackupJSON(objetoProcesso);
 
   alert('Processo salvo com sucesso (IndexedDB). Versão ' + numeroVersao);
 
   console.log('SALVANDO...');
+
+  if (document.getElementById('autoBackup').checked) {
+  gerarBackupJSON(objetoProcesso);
+  }
+}
+
+/* Função para gerar backup em formato JSON do processo avaliado, incluindo todas as versões e dados associados */
+function gerarBackupJSON(objetoProcesso) {
+  try {
+    // Nome do arquivo com identificação + timestamp
+    const nomeProcesso = objetoProcesso.nomeProcesso
+      ? objetoProcesso.nomeProcesso.replace(/[^a-zA-Z0-9]/g, '_')
+      : 'processo';
+
+    const data = new Date().toISOString().replace(/[:.]/g, '-');
+
+    const nomeArquivo = `backup_${nomeProcesso}_${data}.json`;
+
+    // Converte objeto para JSON formatado
+    const jsonString = JSON.stringify(objetoProcesso, null, 2);
+
+    // Cria blob
+    const blob = new Blob([jsonString], { type: 'application/json' });
+
+    // Cria link para download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    a.href = url;
+    a.download = nomeArquivo;
+
+    document.body.appendChild(a);
+    a.click();
+
+    // Limpeza
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('Backup JSON gerado com sucesso:', nomeArquivo);
+
+  } catch (error) {
+    console.error('Erro ao gerar backup JSON:', error);
+    alert('Erro ao gerar backup.');
+  }
 }
 
 
