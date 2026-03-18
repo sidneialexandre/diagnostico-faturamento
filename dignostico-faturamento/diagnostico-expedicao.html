@@ -209,7 +209,11 @@ async function listarProcessos() {
     const tx = database.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
 
-    const request = store.getAll();
+    //const request = store.getAll();
+
+    if (processos.length === 0) {
+     console.warn('Nenhum diagnóstico encontrado no banco.');
+  }
 
     request.onsuccess = () => {
       const lista = request.result || [];
@@ -488,7 +492,8 @@ async function salvar() {
 
   await atualizarListaDiagnosticosIndexed();
 
-  gerarBackupJSON(objetoProcesso);
+  
+  //gerarBackupJSON(objetoProcesso);
 
   alert('Processo salvo com sucesso (IndexedDB). Versão ' + numeroVersao);
 
@@ -646,7 +651,7 @@ async function exportarPDF(){
 // ==============================
 async function atualizarListaDiagnosticosIndexed() {
   const select = document.getElementById('listaDiagnosticos');
-  select.innerHTML = '';
+  select.innerHTML = '<option value="">Selecione um diagnóstico...</option>';
 
   const processos = await listarProcessos();
 
@@ -710,50 +715,18 @@ async function carregarDiagnostico() {
   alert('Processo carregado com sucesso (IndexedDB).');
 }
 
-window.onload=function(){
-
- atualizarListaDiagnosticos();
-
-// ==============================
-// INIT
-// ==============================
+/*
+  Ao carregar a página, o sistema abre o IndexedDB e atualiza a lista de diagnósticos salvos. 
+  Se um diagnóstico for selecionado para carregamento, ele preenche o formulário com os dados correspondentes.
+*/
 window.onload = async function () {
   await abrirDB();
   await atualizarListaDiagnosticosIndexed();
 };
 
- const dados = JSON.parse(ultimo);
-
- document.getElementById('nomeProcesso').value = dados.nomeProcesso || '';
-
- // Restaurar entrevistados
- const tbody=document.querySelector('#tabelaEntrevistados tbody');
- tbody.innerHTML='';
-
- if(dados.entrevistados && dados.entrevistados.length){
-   dados.entrevistados.forEach(e=>{
-     const tr=document.createElement('tr');
-     tr.innerHTML=`
-       <td style='border:1px solid #ccc'><input value="${e.nome}"></td>
-       <td style='border:1px solid #ccc'><input value="${e.cargo}"></td>
-       <td style='border:1px solid #ccc'><input value="${e.email}"></td>
-     `;
-     tbody.appendChild(tr);
-   });
- }
-
- // Restaurar respostas
- estrutura.forEach((p,i)=>{
-   const respostasPilar=dados.respostas[p.nome];
-   if(!respostasPilar) return;
-
-   respostasPilar.forEach((r,j)=>{
-     document.getElementById(`p${i}_${j}`).value=r.nota;
-     document.getElementById(`p${i}_${j}_obs`).value=r.obs;
-   });
- });
-
-};
+/***********************
+  FUNÇÃO DE BACKUP JSON
+  Gera um arquivo JSON com os dados do processo para backup manual.*/
 
 </script>
 
