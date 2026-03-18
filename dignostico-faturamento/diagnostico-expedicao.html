@@ -720,7 +720,7 @@ async function carregarDiagnostico() {
   Se um diagnóstico for selecionado para carregamento, ele preenche o formulário com os dados correspondentes.
 */
 window.onload = async function () {
-  await abrirDB();
+  if (!db) await abrirDB();
   await atualizarListaDiagnosticosIndexed();
 };
 
