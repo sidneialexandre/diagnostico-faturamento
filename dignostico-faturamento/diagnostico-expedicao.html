@@ -635,25 +635,6 @@ async function exportarPDF(){
    doc.text('Média do Pilar: '+media,16,y);
    y+=6;
 
-   doc.setFontSize(10);
-   doc.text('Resumo do Pilar:',16,y);
-   y+=5;
-
-   if(criticos.length>0){
-     doc.text('Pontos Críticos Identificados:',18,y);
-     y+=5;
-     criticos.forEach(c=>{
-       const lines=doc.splitTextToSize('- '+c,160);
-       doc.text(lines,20,y);
-       y+=lines.length*4;
-     });
-   } else {
-     doc.text('Sem pontos críticos relevantes.',18,y);
-     y+=5;
-   }
-
-   doc.text('Recomendação: Elaborar plano de ação estruturado com responsáveis, prazos e indicadores de acompanhamento.',18,y);
-   y+=10;
  });
 
  doc.save('Mapeamento_Diagnostico_Processo.pdf');
