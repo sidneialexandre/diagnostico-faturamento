@@ -147,6 +147,7 @@ function abrirDB() {
 
     request.onsuccess = () => {
       db = request.result;
+      console.log('DB ABERTO');
       resolve(db);
     };
 
@@ -490,6 +491,8 @@ async function salvar() {
   gerarBackupJSON(objetoProcesso);
 
   alert('Processo salvo com sucesso (IndexedDB). Versão ' + numeroVersao);
+
+  console.log('SALVANDO...');
 }
 
 
